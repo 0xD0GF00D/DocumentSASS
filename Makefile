@@ -4,7 +4,7 @@ NVCC=/usr/local/cuda/bin/nvcc
 NVDISASM=/usr/local/cuda/bin/nvdisasm
 PYTHON=python3
 
-architectures=sm_35 sm_37 sm_50 sm_52 sm_53 sm_60 sm_61 sm_62 sm_70 sm_72 sm_75 sm_80 sm_86
+architectures=sm_50 sm_52 sm_53 sm_60 sm_61 sm_62 sm_70 sm_72 sm_75 sm_80 sm_86 sm_90
 
 targets = $(architectures:=_instructions.txt) $(architectures:=_latencies.txt)
 
