@@ -68,14 +68,11 @@ Becomes partly the SASS:
 97	      HFMA2.MMA R16, -RZ, RZ, 1.875, 0
 125	      FSEL R6, R16, -1, P1 
 </pre>
-The utility of the RZ register is to encode literal float zero using only 8 bits instead of e.g. 32 for a float.
+The utility of the RZ register is to encode literal float zero using only 8 bits instead of e.g. 32 for a float, or 24 for an immediate float value.
 
 Not sure what the .MMA part is, but HFMA2 is half2 vector fused multiply-add.<br>
-We have in half precision 1.875 = 0011111110000000, and 0 is just 16 zeros. The result is that half2 adding {1.875, 0} gives [the float representation of 1](https://evanw.github.io/float-toy/)!<br>
-The objective of the {-RZ, RZ}-elementwise-mult is clearly just to set R16 to zero after which R16 is set to the float literal 1.
+We have in half precision 1.875 = 0011111110000000, and 0 is just 16 zeros. The result is that half2 adding {1.875, 0} to 0 (RZ * RZ) gives [the float representation of 1](https://evanw.github.io/float-toy/)!
+The result is that the float literal "1" gets stored in in R16.
 
-Now there is the MOV instruction, which could do the same. I have no idea which unit does MOV, but clearly, it is not the half-precision unit; therefore using this otherwise un-used unit gives a higher throughput.
+Now there is the MOV instruction, which could do the same. I have no idea which unit does MOV, it is clearly not the half-precision unit; therefore using this otherwise un-used unit gives a higher throughput.
 This explains why one might see half-precision operations even if half precision is not used anywhere in the code.
-
-
-This interpretation holds assuming the first 16 bits in R16 do not encode half precision NaN/Inf. (since multiplying NaN/Inf with zero gives NaN). Either the code exploits that R16 has a known value, or some part of the instruction actually filters out this case somehow.
