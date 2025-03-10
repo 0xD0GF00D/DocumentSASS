@@ -69,4 +69,4 @@ sm_86_instructions.txt
 sm_86_latencies.txt
 </pre>
 This shows that some parts were unchanged between different compute capabilities. These files are 32.6 MB.<br>
-The size of the .data and .rodata segment in nvdisasm is 30.9 + 0.17 = 31.07 MB. So some decompression is most likely done, which explains why the text files are not easily discoverable.
+The size of the .data and .rodata segment in nvdisasm is 30.9 + 0.17 = 31.07 MB. So some decompression is definitely done when running the compiler, which explains why the text files are not easily discoverable.
