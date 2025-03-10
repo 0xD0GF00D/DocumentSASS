@@ -71,8 +71,7 @@ Becomes partly the SASS:
 The utility of the RZ register is to encode literal float zero using only 8 bits instead of e.g. 32 for a float, or 24 for an immediate float value.
 
 Not sure what the .MMA part is, but HFMA2 is half2 vector fused multiply-add.<br>
-We have in half precision 1.875 = 0011111110000000, and 0 is just 16 zeros. The result is that half2 adding {1.875, 0} to {0, 0} * {0, 0} (-RZ * RZ) gives [the float representation of 1](https://evanw.github.io/float-toy/)!
-The result is that the float literal "1" gets stored in in R16.
+We have in half precision 1.875 = 0011111110000000, and 0 is just 16 zeros. The result is that half2 adding {1.875, 0} to {0, 0} * {0, 0} (-RZ * RZ) gives [the float representation of 1](https://evanw.github.io/float-toy/)! This float "1" then gets stored in in R16.
 
 Now there is the MOV instruction, which could do the same. I have no idea which unit does MOV, it is clearly not the half-precision unit; therefore using this otherwise un-used unit gives a higher throughput.
 This explains why one might see half-precision operations even if half precision is not used anywhere in the code.
