@@ -35,7 +35,7 @@ For example for HMMA.16816.F16 (half-precision tensor-core accelerated matrix mu
 
 Note that the measured time of HMMA.16816.F32 was 33-34 cycles, which is not in the latencies table. Maybe because it is above 2*15, or maybe cause it is greater than 27, which is the largest value of the usched table in the instructions file -- 28 is the greatest value latency in the latency file. The latency for DMMA.884 was measured to be 38-39 cycles (and as high as 177 with multiple threads), which is quite far from (DMMA_OP, DMMA_OP) = 25 or (DMMA_OP, MIO_FAST_OPS) = 23.
 
-Another example is with the variable-latency MUFU operation. It is also a MIO_FAST_OP, but unfortunately the latency for chaining these is not given. In terms of scheduling this is not an issue, as there is no hazards (as long as appropriate barriers are set). I measured MUFU.SQRT to be 17 cycles (sm86), which is also the time of MUFU.RSQ (reciprocal square root), MUFU.LG2 (2-logarithm) and MUFU.EX2 (2-exponential). The first case is most interesting, since one might expect MUFU.SQRT to have the latency of MUFU.RSQ + MUFU.RCP (reciprocal).
+Another example is with the variable-latency MUFU operation. It is also a MIO_FAST_OP, but unfortunately the latency for chaining these is not given. In terms of scheduling this is not an issue, as there are no hazards (as long as appropriate variable-latency barriers are set). I measured MUFU.SQRT to be 17 cycles (sm86), which is also the time of MUFU.RSQ (reciprocal square root), MUFU.LG2 (2-logarithm) and MUFU.EX2 (2-exponential). The first case is most interesting, since one might expect MUFU.SQRT to have the latency of MUFU.RSQ + MUFU.RCP (reciprocal).
 
 
 Findings:
