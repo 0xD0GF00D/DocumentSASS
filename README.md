@@ -3,7 +3,7 @@ The instruction sets for NVIDIA GPUs have a very sparse [official documentation]
 
 Other projects have worked on examining the instructions mainly through reverse-engineering, such as 
 [MaxAs](https://github.com/NervanaSystems/maxas/), [AsFermi](https://github.com/hyqneuron/asfermi), [CuAssembler](https://github.com/cloudcores/CuAssembler),
-[TuringAs](https://github.com/daadaada/turingas), [KeplerAs](https://github.com/PAA-NCIC/PPoPP2017_artifact), [Decuda](https://github.com/laanwj/decuda), and the paper [Dissecting the NVidia Turing T4 GPU](https://arxiv.org/abs/1903.07486).
+[TuringAs](https://github.com/daadaada/turingas), [KeplerAs](https://github.com/PAA-NCIC/PPoPP2017_artifact), [Decuda](https://github.com/laanwj/decuda), and the papers [Dissecting the NVidia Turing T4 GPU](https://arxiv.org/abs/1903.07486), [Optimizing Batched Winograd Convolution on GPUs](https://www.cse.ust.hk/~weiwa/papers/yan-ppopp20.pdf).
 
 
 Since the instructions and architecture changes from generation to generation, it is an uphill battle.<br>
