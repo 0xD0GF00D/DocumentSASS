@@ -23,7 +23,7 @@ The encoded `opex` field appears to include stall cycles, reuse flags, and somet
 
 For older architectures (Maxwell up to Pascal `sm_62`), exact operation latencies are provided in separate tables, organized by input and output resources (connectors). 
 
-For modern hardware, true cycle execution times must be measured via microbenchmarking, as the hardware relies entirely on the compiler-injected barriers:
+For modern hardware, true cycle execution times may be measured via microbenchmarking:
 
 *   **HMMA (Tensor Cores):** For `HMMA.16816.F16`, if chained with the connection of the input register being the same as the output register, legacy tables might suggest a latency of 28. By micro-benchmarking, I found the actual latency to be 24 cycles. Looking at the SASS, it appears that NOP operations are inserted between them. NOP is classified as a `MIO_OP` because it appears to be used specifically to resolve data hazards for variable-latency instructions. The correct table value is then `(HMMA_OP, MIO_FAST_OPS) = 22`! Our observed value is 24 because one cycle is spent executing NOPs, and one cycle is lost elsewhere.
 *   **Larger Types:** The measured time of `HMMA.16816.F32` was 33-34 cycles (not present in tables, possibly because it exceeds the max `usched` value of 27). The latency for `DMMA.884` was measured at 38-39 cycles (up to 177 with multiple threads).
