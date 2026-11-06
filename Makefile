@@ -22,13 +22,8 @@ clean:
 %.done: %.cubin intercept.so
 	@OMP_NUM_THREADS=1 \
 	DUMP_PAYLOAD_PATH=$*.bin \
-	DUMP_STATE_PATH=$*_state.txt \
-	LD_PRELOAD=./intercept.so $(NVDISASM) $< > $*.raw 2>/dev/null || true
-	@if [ ! -s $*.raw ] && [ ! -f $*.bin ]; then \
-		echo "[$*] Hook unneeded or incompatible. Running native fallback..."; \
-		$(NVDISASM) $< > $*.raw 2>/dev/null; \
-	fi
+	LD_PRELOAD=./intercept.so $(NVDISASM) $< > /dev/null 2>&1 || true
 	@touch $@
 
 %_instructions.txt %_latencies.txt: %.done
-	$(PYTHON) funnel.py $* $(NVDISASM)
+	$(PYTHON) extract_sass_docs.py $*
