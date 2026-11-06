@@ -1,28 +1,34 @@
-# Set up compiler, just compile a .ptx for the lowest arch possible. It does not matter as we are interested in SASS.
-CC=cc
-NVCC=/usr/local/cuda/bin/nvcc
-NVDISASM=/usr/local/cuda/bin/nvdisasm
-PYTHON=python3
+CC = cc
+NVCC = /usr/local/cuda/bin/nvcc
+NVDISASM = /usr/local/cuda/bin/nvdisasm
+PYTHON = python3
 
-architectures=sm_50 sm_52 sm_53 sm_60 sm_61 sm_62 sm_70 sm_72 sm_75 sm_80 sm_86 sm_87 sm_89 sm_90 sm_90a sm_100 sm_100a sm_120
+architectures := $(shell $(NVCC) --help | grep -oE '\bsm_[0-9]+[a-z]?' | sort -u)
 
 targets = $(architectures:=_instructions.txt) $(architectures:=_latencies.txt)
 
 all: $(targets)
 
 clean:
-	-rm -f $(targets)
-
-# Generate the SASS versions.
-%.cubin: example.cu
-	$(NVCC) -o $@ -arch=$(basename $@) -cubin $<
+	-rm -f $(targets) *.cubin *.bin *_state.txt *.raw *.done intercept.so
 
 %.so: %.c
 	$(CC) -fPIC -shared -o $@ $< -ldl
 
-# Not sure if the OMP things are needed, same with the flushing of stdout. We pipe it through strings to get only readable parts.
-%_intercept.txt: %.cubin intercept.so
-	OMP_NUM_THREADS=1 OMP_THREAD_LIMIT=1 LD_PRELOAD=./intercept.so $(NVDISASM) $< | strings -n 1 > $@
+%.cubin: example.cu
+	$(NVCC) -o $@ -arch=$* -cubin $<
 
-%_instructions.txt %_latencies.txt: %_intercept.txt
-	$(PYTHON) funnel.py $<
+# $* evaluates strictly to the architecture name (e.g., sm_75)
+%.done: %.cubin intercept.so
+	@OMP_NUM_THREADS=1 \
+	DUMP_PAYLOAD_PATH=$*.bin \
+	DUMP_STATE_PATH=$*_state.txt \
+	LD_PRELOAD=./intercept.so $(NVDISASM) $< > $*.raw 2>/dev/null || true
+	@if [ ! -s $*.raw ] && [ ! -f $*.bin ]; then \
+		echo "[$*] Hook unneeded or incompatible. Running native fallback..."; \
+		$(NVDISASM) $< > $*.raw 2>/dev/null; \
+	fi
+	@touch $@
+
+%_instructions.txt %_latencies.txt: %.done
+	$(PYTHON) funnel.py $* $(NVDISASM)
