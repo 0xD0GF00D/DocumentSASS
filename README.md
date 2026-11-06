@@ -21,7 +21,7 @@ For some additional, unrelated observations, see [OTHER](OTHER.md).
 ## How to run
 The easy way is by simply running [this notebook](https://colab.research.google.com/drive/1qjdpjCgozg-yKfW_u9lJfHuxOu0NrnGG) in Google Colab. No requirements.
 
-Requirements to run locally: Linux, Python 3, CUDA Toolkit. Run `make` to generate the raw files describing instructions and latencies. Be sure to change the paths in the beginning of the Makefile if they are different on your system. Tested with CUDA 11.6.
+Requirements to run locally: Linux, Python 3, CUDA Toolkit. Run `make` to generate the raw files describing instructions and latencies. Be sure to change the paths in the beginning of the Makefile if they are different on your system. Tested on CUDA 11.6 by maintainer and CUDA 12.8 by [1 contributor](https://github.com/OPS-NeoRetro).
 
 ## How it works
 1. `nvcc` is used to compile example.cu to .cubin binaries for a list of architectures.
