@@ -1,119 +1,107 @@
-import collections
-import re
-import sys
-from collections import *
+#define _GNU_SOURCE
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdint.h>
+#include <unistd.h>
+#include <string.h>
+#include <sys/mman.h>
 
-# We used delimiters like the one below to separate different outputs.
-example = "<0x0 0x0 0>"
-# The first value is the destination pointer, the second the src, and the third the size in bytes.
-delimiter = "<0x[\da-f]+ 0x[\da-f]+ [\d]+>"
+#define STOLEN_LEN 13
 
-pattern = re.compile(delimiter)
-assert pattern.match(example)
+static const uint8_t SIG[STOLEN_LEN] = {
+    0x85, 0xD2, 0x8B, 0x4F, 0x04, 0x44, 0x8B, 0x47, 0x08, 0x0F, 0xB6, 0x47, 0x0C
+};
 
-def getstring(data, src, firstline=False, unique=False):
-    # Put unique = true to remove duplicate lines from string. Mor or may not work.
-    collect = False
-    partial = []
-    full = collections.OrderedDict() if unique else []
-    for line in data.splitlines() + [example]: # <- we add an empty token to push out last line.
-        if pattern.match(line):  # Start of a string.
-            collect = line.split()[1] == src  # The code matches. Start collecting pieces of the string.
-            if unique:
-                full['\n'.join(partial)] = None
-            else:
-                full.append('\n'.join(partial))
-            partial.clear()
-        elif collect:
-            if firstline:
-                return line
-            partial.append(line)
+static void *trampoline = NULL;
+static int payload_count = 0;
+typedef char (*decrypt_fn)(uint32_t *state, char *buffer, size_t length);
 
+char hook_func(uint32_t *state, char *buffer, size_t length) {
+    decrypt_fn real_decrypt = (decrypt_fn)trampoline;
+    char ret = real_decrypt(state, buffer, length);
 
-    # Collect the partial results. And connect them not by newlines.
-    return ''.join(full)
+    // Capture buffers >= 500 bytes (catches smaller latency slices)
+    if (length >= 500) {
+        const char *prefix = getenv("DUMP_PAYLOAD_PREFIX");
+        if (prefix && buffer) {
+            char path[512];
+            payload_count++;
+            snprintf(path, sizeof(path), "%s_payload_%d.bin", prefix, payload_count);
 
+            FILE *fp = fopen(path, "wb");
+            if (fp) {
+                fwrite(buffer, 1, length, fp);
+                fclose(fp);
+            }
 
-def getkey(entry):
-    # Unpack "<a b c>" into a,b,c
-    return entry[1:-1].split()
+            // Print first 40 chars of decrypted buffer to stderr for diagnostics
+            char sample[41];
+            size_t sample_len = length < 40 ? length : 40;
+            for (size_t i = 0; i < sample_len; i++) {
+                sample[i] = (buffer[i] >= 32 && buffer[i] <= 126) ? buffer[i] : '.';
+            }
+            sample[sample_len] = '\0';
+            fprintf(stderr, "[HOOK] Payload #%d: %zu bytes | Sample: %s\n", payload_count, length, sample);
+        }
+    }
 
-def getfile(data, name):
-    # Find the occurence of string starting with name, and extract key.
-    match = re.search(delimiter + '\n' + name, data).group()
-    _, src, _ = getkey(match.splitlines()[0])
-    # t = True
-    #for match in re.findall(delimiter + '\n' + name, data):
-    #    _, src, _ = getkey(match.splitlines()[0])
-        # print(src)
-        # 0x449e908
-        # 0x449a840
-        # Then use the key to get the rest of the string.
-    return getstring(data, src)
+    return ret;
+}
 
-def getcounts(data):
-    # The basic idea is that a string-buffer will end up having written the whole file.
-    # Therefore we can look through the amount of trafic to find the strings of interest.
-    keys = map(getkey, pattern.findall(data))
-    counts = defaultdict(int)
-    for dst, src, size in keys:
-        size = int(size)
-        # We only really care for the src, as this is the buffer containing the string.
-        counts[src] = counts[src] + size
-    return counts
+static void *find_decrypt_isa(void) {
+    FILE *maps = fopen("/proc/self/maps", "r");
+    if (!maps) return NULL;
 
-def getreferences(data):
-    keys = map(getkey, pattern.findall(data))
-    # Something is written a..........b, where a, b is the start and end address.
-    # Then something is written: b.......c
-    # We would now like to trace this connection a->c starting in c. So the value should be the parent.
-    points = {int(entry[0][2:], 16)+int(entry[2]): int(entry[0][2:], 16) for entry in keys}
-    points_rev = {int(entry[0][2:], 16):int(entry[0][2:], 16)+int(entry[2]) for entry in keys}
+    char line[512];
+    uintptr_t start, end;
+    char perms[5];
+    void *found = NULL;
 
-    # Now, toplevels are those with no parents, e.g. a.
-    toplevels = [value for value in points.values() if value not in points]
-    bottomlevels = [value for value in points_rev.values() if value not in points_rev]
+    while (fgets(line, sizeof(line), maps)) {
+        if (!strstr(line, "nvdisasm")) continue;
+        if (sscanf(line, "%lx-%lx %4s", &start, &end, perms) != 3) continue;
 
+        if (perms[2] == 'x') {
+            uint8_t *ptr = (uint8_t *)start;
+            size_t len = end - start;
+            for (size_t i = 0; i + STOLEN_LEN <= len; i++) {
+                if (memcmp(ptr + i, SIG, STOLEN_LEN) == 0) {
+                    found = (void *)(ptr + i);
+                    break;
+                }
+            }
+        }
+        if (found) break;
+    }
+    fclose(maps);
+    return found;
+}
 
-    # Now we can remove all of those
-    print(len(bottomlevels))
-    #print(len(points))
+__attribute__((constructor))
+static void install_hooks(void) {
+    void *decrypt_target = find_decrypt_isa();
+    if (!decrypt_target) return;
 
-    return points
+    uintptr_t page_size = sysconf(_SC_PAGE_SIZE);
+    uintptr_t page_start = (uintptr_t)decrypt_target & ~(page_size - 1);
+    mprotect((void *)page_start, page_size * 2, PROT_READ | PROT_WRITE | PROT_EXEC);
 
-def remsuffix(inpt, suffix):
-    # https://stackoverflow.com/a/1038845
-    if inpt.endswith(suffix):
-        inpt = inpt[:-len(suffix)]
-    return inpt
+    trampoline = mmap(NULL, page_size, PROT_READ | PROT_WRITE | PROT_EXEC,
+                      MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 
-if __name__ == "__main__":
-    if len(sys.argv) == 1:
-        raise Exception('No input file name given.')
+    memcpy(trampoline, decrypt_target, STOLEN_LEN);
 
-    for fname in sys.argv[1:]:
-        with open(fname, "r", encoding="ascii") as f:
-            data = f.read()
+    uint8_t jmp_back[13] = {
+        0x49, 0xBB, 0, 0, 0, 0, 0, 0, 0, 0,
+        0x41, 0xFF, 0xE3
+    };
+    *(uintptr_t *)(&jmp_back[2]) = (uintptr_t)decrypt_target + STOLEN_LEN;
+    memcpy((uint8_t *)trampoline + STOLEN_LEN, jmp_back, 13);
 
-        fname = remsuffix(remsuffix(fname, '.txt'), '_intercept')
-        instructions = getfile(data, 'ARCHITECTURE')[:-2]
-        with open(fname + '_instructions.txt', "w") as f:
-            f.write(instructions)
-
-        latencies = getfile(data, 'OPERATION SETS')
-        with open(fname + '_latencies.txt', "w") as f:
-            f.write(latencies)
-
-    if False:
-        threshold = 0  # Threshold at 5 Kb e.g.
-        goodones = sorted((x[1], x[0]) for x in getcounts(data).items() if x[1] >= threshold)
-        for size, src in reversed(goodones):
-            try:
-                firstline = getstring(data, src, firstline=True)
-                txt = getfile(data, firstline)
-                print(size, len(txt), src, firstline)
-            except e:
-                pass
-
-
-        # print(map(lambda x: getstring(x[1]), goodones))
+    uint8_t jmp_hook[13] = {
+        0x49, 0xBB, 0, 0, 0, 0, 0, 0, 0, 0,
+        0x41, 0xFF, 0xE3
+    };
+    *(uintptr_t *)(&jmp_hook[2]) = (uintptr_t)&hook_func;
+    memcpy(decrypt_target, jmp_hook, 13);
+}
