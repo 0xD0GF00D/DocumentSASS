@@ -10,7 +10,7 @@ targets = $(architectures:=_instructions.txt) $(architectures:=_latencies.txt)
 all: $(targets)
 
 clean:
-	-rm -f $(targets) *.cubin *.bin *_state.txt *.raw *.done intercept.so
+	-rm -f $(targets) *.cubin *_payload_*.bin *.done intercept.so
 
 %.so: %.c
 	$(CC) -fPIC -shared -o $@ $< -ldl
@@ -18,12 +18,11 @@ clean:
 %.cubin: example.cu
 	$(NVCC) -o $@ -arch=$* -cubin $<
 
-# $* evaluates strictly to the architecture name (e.g., sm_75)
 %.done: %.cubin intercept.so
 	@OMP_NUM_THREADS=1 \
-	DUMP_PAYLOAD_PATH=$*.bin \
+	DUMP_PAYLOAD_PREFIX=$* \
 	LD_PRELOAD=./intercept.so $(NVDISASM) $< > /dev/null 2>&1 || true
 	@touch $@
 
 %_instructions.txt %_latencies.txt: %.done
-	$(PYTHON) extract_sass_docs.py $*
+	$(PYTHON) funnel.py $*
