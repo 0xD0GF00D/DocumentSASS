@@ -5,11 +5,12 @@ Other projects have worked on examining the instructions mainly through reverse-
 [MaxAs](https://github.com/NervanaSystems/maxas/), [AsFermi](https://github.com/hyqneuron/asfermi), [CuAssembler](https://github.com/cloudcores/CuAssembler),
 [TuringAs](https://github.com/daadaada/turingas), [KeplerAs](https://github.com/PAA-NCIC/PPoPP2017_artifact), [Decuda](https://github.com/laanwj/decuda), and the papers [Dissecting the NVidia Turing T4 GPU](https://arxiv.org/abs/1903.07486), [Optimizing Batched Winograd Convolution on GPUs](https://www.cse.ust.hk/~weiwa/papers/yan-ppopp20.pdf).
 
-Since the instructions and architecture change from generation to generation, it is an uphill battle.<br>
+Since the instructions and architecture change from generation to generation, it is an uphill battle.
+
 **What if a description of the instruction encoding could be found within the tools provided by NVIDIA?**<br>
 **What if the instruction latencies could be found inside these as well?**<br>
 
-The answer is **of course they can.** Otherwise, the compiler would do a poor job scheduling instructions. Furthermore, for SASS, it appears that fixed-latency instructions have the number of stall cycles hard-coded into them [[src](https://arxiv.org/pdf/1903.07486.pdf)]. It is just a question of finding where this data is hidden.
+The answer is: **of course they can.** Otherwise, the compiler would do a poor job scheduling instructions. Furthermore, for SASS, it appears that fixed-latency instructions have the number of stall cycles hard-coded into them [[src](https://arxiv.org/pdf/1903.07486.pdf)]. It is just a question of finding where this data is hidden.
 
 It turns out that an extensive description of SASS instructions as well as latencies was contained in two specific strings in `nvdisasm`. Instead of having to write micro-benchmarks to find latencies, or use reverse engineering to make an assembler, one could in theory just consult these files. [Instruction scheduling](https://en.wikipedia.org/wiki/Instruction_scheduling) info is given in the latencies file, with the minimum time for fixed-latency ops. essentially being the latency. See [NOTES](NOTES.md).
 
