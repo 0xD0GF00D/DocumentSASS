@@ -22,6 +22,6 @@ Requirements: Python 3 with lz4 (`pip install lz4`) + the CUDA Toolkit. Run `mak
 ## How it works
 1. `nvcc` compiles `example.cu` to `.cubin` binaries for each supported architecture.
 2. `cc` compiles `intercept.c` into a library that hooks `nvdisasm`'s internal decryption routines using a [trampoline](https://en.wikipedia.org/wiki/Trampoline_(computing)).
-3. We run `nvdisasm` under `LD_PRELOAD=./intercept.so` to trigger the hook, which captures the cipher state alongside the primary encrypted payload while letting the disassembler continue normally.
+3. We run `nvdisasm` under `LD_PRELOAD=./intercept.so` to trigger the hook, which captures its cipher state alongside the encrypted payload while letting the disassembler continue normally.
 4. `extract_sass_docs.py` parses the [S-box](https://en.wikipedia.org/wiki/S-box) from the `nvdisasm` [ELF](https://en.wikipedia.org/wiki/Executable_and_Linkable_Format) binary, decrypts the payload via its [LCG](https://en.wikipedia.org/wiki/Linear_congruential_generator) stream, and unpacks the text buffer using [LZ4](https://github.com/lz4/lz4).
 5. The decompressed and decrypted text is routed to `*_latencies.txt` and `*_instructions.txt`.
